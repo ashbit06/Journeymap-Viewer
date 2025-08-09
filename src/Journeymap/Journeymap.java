@@ -8,8 +8,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.nio.file.*;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
 
 public class Journeymap {
@@ -83,7 +82,13 @@ public class Journeymap {
 
     public void setWorld(World world) { this.world = world; }
 
-    public ArrayList<String> getDimensions() {
+    public List<String> getWorldList(boolean retrieveMultiplayer) {
+        File worlds = new File(path + String.format("/data/%sp", retrieveMultiplayer ? 'm' : 's'));
+
+        return List.of(Objects.requireNonNull(worlds.list()));
+    }
+
+    public List<String> getDimensions() {
         ArrayList<String> dimensions = new ArrayList<>();
 
         File[] files = this.path.listFiles();

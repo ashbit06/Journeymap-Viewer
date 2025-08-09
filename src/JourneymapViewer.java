@@ -1,6 +1,5 @@
 import Journeymap.Journeymap;
 import Journeymap.Waypoint;
-import Journeymap.WaypointIcon;
 import Journeymap.MapType;
 import Journeymap.World;
 import Journeymap.Dimension;
@@ -8,6 +7,10 @@ import Journeymap.PointXZ;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import javax.swing.event.MenuEvent;
+import javax.swing.event.MenuListener;
 import javax.swing.filechooser.FileFilter;
 import java.awt.*;
 import java.awt.event.KeyEvent;
@@ -17,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
+import java.util.function.IntFunction;
 
 public class JourneymapViewer extends JPanel {
     private static final int TOOLBAR_HEIGHT = 30;
@@ -27,6 +31,19 @@ public class JourneymapViewer extends JPanel {
 
     private static String minecraftDirectory;
     private static Journeymap journeymap;
+
+    static {
+        try {
+            journeymap = new Journeymap(
+                    "/Users/ashton/Library/Application Support/ModrinthApp/profiles/1.21.4 fabric/journeymap",
+                    new World("wild~survival", true)
+            );
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    ;
     private static World world;
     private Dimension currentDimension;
     private MapType currentMapType;
@@ -204,48 +221,49 @@ public class JourneymapViewer extends JPanel {
         toolbar.setBackground(TOOLBAR_COLOR);
         toolbar.setPreferredSize(new java.awt.Dimension(frame.getWidth(), TOOLBAR_HEIGHT));
         toolbar.setLayout(new FlowLayout(FlowLayout.LEFT));
+        frame.add(toolbar, BorderLayout.NORTH);
 
         JButton minecraftSelectButton = new JButton("select minecraft");
         toolbar.add(minecraftSelectButton);
 
         JButton worldSelectButton = new JButton("select world");
         toolbar.add(worldSelectButton);
-        frame.add(toolbar, BorderLayout.NORTH);
+
+        JMenu mapTypeMenu = new JMenu("Overworld");
+        toolbar.add(mapTypeMenu);
+        mapTypeMenu.setVisible(false);
 
         // --- Map Canvas ---
         JourneymapViewer canvas = new JourneymapViewer();
         frame.add(canvas, BorderLayout.CENTER);
 
+        // actions
         minecraftSelectButton.addActionListener(e -> {
-            JFileChooser chooser = new JFileChooser();
-            chooser.setDialogTitle("Select your folder");
-            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-            chooser.setFileFilter(new FileFilter() {
-                @Override
-                public boolean accept(File f) {
-                    return f.isDirectory() && f.getName().equals("journeymap");
-                }
+            JFileChooser minecraftSelector = getMinecraftSelector();
+            int result = minecraftSelector.showOpenDialog(frame);
 
-                @Override
-                public String getDescription() {
-                    return "";
-                }
-            });
-            chooser.setAcceptAllFileFilterUsed(false);
-
-            int result = chooser.showOpenDialog(frame);
             if (result == JFileChooser.APPROVE_OPTION) {
-                File selectedDir = chooser.getSelectedFile();
+                File selectedDir = minecraftSelector.getSelectedFile();
                 minecraftDirectory = selectedDir.getAbsolutePath();
                 System.out.println("Selected folder: " + minecraftDirectory);
                 canvas.repaint();
             } else {
                 System.out.println("File picker canceled");
             }
+
+            if (journeymap != null) {
+                mapTypeMenu.removeAll();
+                for (String d : journeymap.getDimensions()) {
+                    mapTypeMenu.add(new JMenuItem(d));
+                }
+            }
         });
 
         worldSelectButton.addActionListener(e -> {
             System.out.println("World select clicked");
+            JDialog worldSelect = getWorldSelector(frame);
+            worldSelect.setLocationRelativeTo(frame);
+            worldSelect.setVisible(true);
         });
 
         canvas.addKeyListener(new KeyListener() {
@@ -293,12 +311,65 @@ public class JourneymapViewer extends JPanel {
             }
         });
 
-        journeymap = new Journeymap(
-                "/Users/ashton/Library/Application Support/ModrinthApp/profiles/1.21.4 fabric/journeymap",
-                new World("wild~survival", true)
-        );
-
         frame.setVisible(true);
         canvas.requestFocus();
+    }
+
+    private static JFileChooser getMinecraftSelector() {
+        JFileChooser minecraftSelector = new JFileChooser();
+        minecraftSelector.setDialogTitle("Select your folder");
+        minecraftSelector.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        minecraftSelector.setFileFilter(new FileFilter() {
+            @Override
+            public boolean accept(File f) {
+                return f.isDirectory() && f.getName().equals("journeymap");
+            }
+
+            @Override
+            public String getDescription() {
+                return "";
+            }
+        });
+        minecraftSelector.setAcceptAllFileFilterUsed(false);
+        return minecraftSelector;
+    }
+
+    public static JDialog getWorldSelector(Frame frame) {
+        JDialog worldSelector = new JDialog(frame, "Select a World");
+        worldSelector.setLayout(new BorderLayout());
+
+        JMenu spmpMenu = new JMenu("Singleplayer");
+        spmpMenu.add(new JMenuItem("Singleplayer"));
+        spmpMenu.add(new JMenuItem("Multiplayer"));
+        worldSelector.add(spmpMenu, BorderLayout.NORTH);
+
+        worldSelector.add(new JSeparator());
+
+        JList<String> worldList = new JList<>(journeymap.getWorldList(false).toArray(new String[0]));
+        JScrollPane scrollPane = new JScrollPane(worldList);
+        scrollPane.setSize(300, 200);
+        scrollPane.createVerticalScrollBar();
+        scrollPane.setLayout(new ScrollPaneLayout());
+        worldSelector.add(scrollPane, BorderLayout.CENTER);
+
+        spmpMenu.addMenuListener(new MenuListener() {
+            @Override
+            public void menuSelected(MenuEvent e) {
+                System.out.printf("selected %s", e);
+            }
+
+            @Override
+            public void menuDeselected(MenuEvent e) {
+                System.out.printf("deselected %s", e);
+            }
+
+            @Override
+            public void menuCanceled(MenuEvent e) {
+                System.out.printf("canceled %s", e);
+            }
+        });
+
+        worldSelector.pack();
+        return worldSelector;
     }
 }
