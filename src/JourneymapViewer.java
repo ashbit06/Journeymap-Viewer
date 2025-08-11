@@ -334,7 +334,7 @@ public class JourneymapViewer extends JPanel {
         return minecraftSelector;
     }
 
-    public static JDialog getWorldSelector(Frame frame) {
+    private static JDialog getWorldSelector(Frame frame) {
         JDialog worldSelector = new JDialog(frame, "Select a World");
         worldSelector.setLayout(new BorderLayout());
 
