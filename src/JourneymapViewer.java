@@ -13,9 +13,6 @@ import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.text.FieldPosition;
-import java.text.Format;
-import java.text.ParsePosition;
 import java.util.*;
 import java.util.List;
 
@@ -51,6 +48,18 @@ public class JourneymapViewer extends JPanel {
         cachedWaypoints = new HashMap<>();
         currentDimension = Dimension.OVERWORLD;
         currentMapType = MapType.DAY;
+    }
+
+    @Override
+    public void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        if (getWidth() <= 0 || getHeight() <= 0) return;
+
+        setViewableRectangle();
+        drawRegions(g);
+        drawWaypoints(g);
+
+        System.out.println(Arrays.toString(viewableRectangle));
     }
 
     public void setZoom(float value) {
@@ -96,18 +105,6 @@ public class JourneymapViewer extends JPanel {
                 (viewableRectangle[0] + viewableRectangle[2]) / 2,
                 (viewableRectangle[1] + viewableRectangle[3]) / 2
         );
-    }
-
-    @Override
-    public void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        if (getWidth() <= 0 || getHeight() <= 0) return;
-
-        setViewableRectangle();
-        drawRegions(g);
-//        drawWaypoints(g);
-
-        System.out.println(Arrays.toString(viewableRectangle));
     }
 
     public void drawRegions(Graphics g) {
@@ -291,7 +288,6 @@ public class JourneymapViewer extends JPanel {
             @Override
             public void keyPressed(KeyEvent e) {
                 int key = e.getKeyCode();
-//                System.out.println(key);
 
                 switch (key) {
                     case 38: // up
