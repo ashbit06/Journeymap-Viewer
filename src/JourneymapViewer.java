@@ -13,11 +13,14 @@ import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.text.FieldPosition;
+import java.text.Format;
+import java.text.ParsePosition;
 import java.util.*;
 import java.util.List;
 
 public class JourneymapViewer extends JPanel {
-    private static final int TOOLBAR_HEIGHT = 30;
+    private static final int TOOLBAR_HEIGHT = 40;
     private static final int REGION_SIZE = 512;
 
     private static final Color TOOLBAR_COLOR = new Color(50, 50, 50);
@@ -28,7 +31,7 @@ public class JourneymapViewer extends JPanel {
     private World world;
     private Dimension currentDimension;
     private MapType currentMapType;
-    private final int caveLayer = 23;
+    private int caveLayer = 23;
     private String selectedMode;
 
 
@@ -120,7 +123,6 @@ public class JourneymapViewer extends JPanel {
                 viewableRectangle[2] / regionTileSize + 1,
                 viewableRectangle[3] / regionTileSize + 1
         );
-        // System.out.printf("%d, %d\n", viewableBottomRight.x-viewableTopLeft.x, viewableBottomRight.y-viewableTopLeft.y);
 
         HashSet<PointXZ> usedRegions = new HashSet<>();
         for (int regionZ = viewableTopLeft.y; regionZ < viewableBottomRight.y; regionZ++) {
@@ -205,8 +207,7 @@ public class JourneymapViewer extends JPanel {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
 
-        // --- Toolbar ---
-        JPanel toolbar = new JPanel();
+        JMenuBar toolbar = new JMenuBar();
         toolbar.setBackground(TOOLBAR_COLOR);
         toolbar.setPreferredSize(new java.awt.Dimension(frame.getWidth(), TOOLBAR_HEIGHT));
         toolbar.setLayout(new FlowLayout(FlowLayout.LEFT));
@@ -225,6 +226,12 @@ public class JourneymapViewer extends JPanel {
         JMenu dimensionMenu = getDimensionMenu(canvas);
         toolbar.add(dimensionMenu);
         dimensionMenu.setEnabled(false);
+
+        // FIXME: slider never returns focus to the canvas
+        JSlider caveLayerSlider = new JSlider(JSlider.HORIZONTAL, -4, 23, canvas.caveLayer);
+        JLabel caveLayerLabel = new JLabel(String.valueOf(canvas.caveLayer));
+        toolbar.add(caveLayerSlider);
+        toolbar.add(caveLayerLabel);
 
         frame.add(canvas, BorderLayout.CENTER);
 
@@ -259,12 +266,20 @@ public class JourneymapViewer extends JPanel {
         });
 
         worldSelectButton.addActionListener(e -> {
-            frame.getContentPane().add(canvas.getWorldSelector(frame, canvas), BorderLayout.CENTER);
+            frame.getContentPane().add(getWorldSelector(frame, canvas), BorderLayout.CENTER);
             frame.revalidate();
             canvas.requestFocusInWindow();
             canvas.world = journeymap.getWorld();
             mapTypeMenu.setEnabled(true);
             dimensionMenu.setEnabled(true);
+        });
+
+        caveLayerSlider.addChangeListener(e -> {
+            JSlider source = (JSlider) e.getSource();
+            int value = source.getValue();
+            caveLayerLabel.setText(String.valueOf(value));
+            canvas.caveLayer = value;
+            canvas.repaint();
         });
 
         canvas.addKeyListener(new KeyListener() {
@@ -346,11 +361,7 @@ public class JourneymapViewer extends JPanel {
                 throw new RuntimeException(ex);
             }
         };
-        for (String name : MapType.names) {
-            JMenuItem menuItem = new JMenuItem(name);
-            menuItem.addActionListener(mapTypeMenuAction);
-            mapTypeMenu.add(menuItem);
-        }
+        for (String name : MapType.names) mapTypeMenu.add(new JMenuItem(name)).addActionListener(mapTypeMenuAction);
         return mapTypeMenu;
     }
 
@@ -373,7 +384,7 @@ public class JourneymapViewer extends JPanel {
         return minecraftSelector;
     }
 
-    private JPanel getWorldSelector(JFrame frame, JPanel panel) {
+    private static JPanel getWorldSelector(JFrame frame, JourneymapViewer canvas) {
         JPanel worldSelector = new JPanel(new BorderLayout());
 
         JMenuBar menuBar = new JMenuBar();
@@ -382,7 +393,7 @@ public class JourneymapViewer extends JPanel {
         JMenuItem multiplayer = spmpMenu.add(new JMenuItem("Multiplayer"));
         menuBar.add(spmpMenu);
         worldSelector.add(menuBar, BorderLayout.NORTH);
-        selectedMode = "SinglePlayer";
+        canvas.selectedMode = "SinglePlayer";
 
         List<String> worlds = journeymap.getWorldList(false);
         DefaultListModel<String> worldListModel = new DefaultListModel<>();
@@ -404,22 +415,24 @@ public class JourneymapViewer extends JPanel {
             frame.getContentPane().remove(worldSelector);
             frame.revalidate();
             frame.repaint();
-            panel.requestFocusInWindow();
+            canvas.requestFocusInWindow();
         });
 
         doneButton.addActionListener(e -> {
-            journeymap.setWorld(new World(worldList.getSelectedValue(), selectedMode.equals("Multiplayer")));
+            journeymap.setWorld(new World(worldList.getSelectedValue(), canvas.selectedMode.equals("Multiplayer")));
             frame.getContentPane().remove(worldSelector);
             frame.revalidate();
             frame.repaint();
-            panel.requestFocusInWindow();
+            canvas.requestFocusInWindow();
         });
 
         ActionListener menuListener = e -> {
             JMenuItem source = (JMenuItem) e.getSource();
-            selectedMode = source.getText();
+            String text = source.getText();
+            spmpMenu.setText(text);
+            canvas.selectedMode = text;
             worldListModel.removeAllElements();
-            worldListModel.addAll(journeymap.getWorldList(selectedMode.equals("Multiplayer")));
+            worldListModel.addAll(journeymap.getWorldList(canvas.selectedMode.equals("Multiplayer")));
         };
         singleplayer.addActionListener(menuListener);
         multiplayer.addActionListener(menuListener);
