@@ -7,20 +7,14 @@ import Journeymap.PointXZ;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
-import javax.swing.event.MenuEvent;
-import javax.swing.event.MenuListener;
 import javax.swing.filechooser.FileFilter;
 import java.awt.*;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
+import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
 import java.util.List;
-import java.util.function.IntFunction;
 
 public class JourneymapViewer extends JPanel {
     private static final int TOOLBAR_HEIGHT = 30;
@@ -29,30 +23,18 @@ public class JourneymapViewer extends JPanel {
     private static final Color TOOLBAR_COLOR = new Color(50, 50, 50);
     private static final Color BACKGROUND_COLOR = new Color(25, 25, 25);
 
-    private static String minecraftDirectory;
     private static Journeymap journeymap;
-    private String selectedMode;
-
-    static {
-        try {
-            journeymap = new Journeymap(
-                    "/Users/ashton/Library/Application Support/ModrinthApp/profiles/1.21.4 fabric/journeymap",
-                    new World("wild~survival", true)
-            );
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    ;
-    private static World world;
+    private static String minecraftDirectory;
+    private World world;
     private Dimension currentDimension;
     private MapType currentMapType;
-    private int caveLayer = 23;
+    private final int caveLayer = 23;
+    private String selectedMode;
+
 
     private int panX = 0;
     private int panY = 0;
-    private int panSpeed = 16;
+    private final int panSpeed = 16;
     private float zoom = 1.0f;
     private int[] viewableRectangle;
     private final HashMap<PointXZ, BufferedImage> cachedRegions;
@@ -71,6 +53,23 @@ public class JourneymapViewer extends JPanel {
     public void setZoom(float value) {
         if (value <= 0.0f) throw new IllegalArgumentException("Zoom must be > 0");
         zoom = value;
+    }
+
+    public void zoomAt(float zoomFactor, Point focus) {
+        if (zoomFactor <= 0.0f) return;
+
+        // Convert screen focus point to world coords
+        float worldX = (focus.x + panX) / zoom;
+        float worldY = (focus.y + panY) / zoom;
+
+        // Apply new zoom
+        zoom *= zoomFactor;
+
+        // Recalculate pan so the world point stays at the same screen position
+        panX = (int) (worldX * zoom - focus.x);
+        panY = (int) (worldY * zoom - focus.y);
+
+        repaint();
     }
 
     public Point getCenter() {
@@ -108,24 +107,8 @@ public class JourneymapViewer extends JPanel {
         System.out.println(Arrays.toString(viewableRectangle));
     }
 
-    public void zoomAt(float zoomFactor, Point focus) {
-        if (zoomFactor <= 0.0f) return;
-
-        // Convert screen focus point to world coords
-        float worldX = (focus.x + panX) / zoom;
-        float worldY = (focus.y + panY) / zoom;
-
-        // Apply new zoom
-        zoom *= zoomFactor;
-
-        // Recalculate pan so the world point stays at the same screen position
-        panX = (int) (worldX * zoom - focus.x);
-        panY = (int) (worldY * zoom - focus.y);
-
-        repaint();
-    }
-
     public void drawRegions(Graphics g) {
+        if (journeymap == null) return;
         Graphics2D g2 = (Graphics2D) g;
         int regionTileSize = (int)(REGION_SIZE * zoom);
 
@@ -149,7 +132,7 @@ public class JourneymapViewer extends JPanel {
                     region = cachedRegions.get(regionXZ);
                 } else {
                     try {
-                        if (currentMapType == MapType.CAVE) region = journeymap.getCaveRegion(currentDimension, 0, regionXZ);
+                        if (currentMapType == MapType.CAVE) region = journeymap.getCaveRegion(currentDimension, caveLayer, regionXZ);
                         else region = journeymap.getRegion(currentDimension, currentMapType, regionXZ);
                         cachedRegions.put(regionXZ, region);
                     } catch (IOException e) {
@@ -187,10 +170,13 @@ public class JourneymapViewer extends JPanel {
 
             BufferedImage icon;
             try {
-                icon = cachedWaypoints.containsKey(wp) ? cachedWaypoints.get(wp) : wp.icon().render();
-            } catch (IOException e) {
-                System.out.println(e);
-                continue;
+                if (cachedWaypoints.containsKey(wp)) icon = cachedWaypoints.get(wp);
+                else {
+                    icon = wp.icon().render();
+                    cachedWaypoints.put(wp, icon);
+                }
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
             }
 
             int drawX = -(int)((wp.position().x + viewableRectangle[0]) * zoom);
@@ -210,6 +196,7 @@ public class JourneymapViewer extends JPanel {
     }
 
     public static void main(String[] args) throws Exception {
+        JourneymapViewer canvas = new JourneymapViewer();
         JFrame frame = new JFrame("Journeymap Viewer");
         frame.setIconImage(ImageIO.read(new File("assets/icon.png")));
         frame.setSize(800, 500);
@@ -231,12 +218,14 @@ public class JourneymapViewer extends JPanel {
         JButton worldSelectButton = new JButton("select world");
         toolbar.add(worldSelectButton);
 
-        JMenu mapTypeMenu = new JMenu("Overworld");
+        JMenu mapTypeMenu = getMapTypeMenu(canvas);
         toolbar.add(mapTypeMenu);
-        mapTypeMenu.setVisible(false);
+        mapTypeMenu.setEnabled(false);
 
-        // --- Map Canvas ---
-        JourneymapViewer canvas = new JourneymapViewer();
+        JMenu dimensionMenu = getDimensionMenu(canvas);
+        toolbar.add(dimensionMenu);
+        dimensionMenu.setEnabled(false);
+
         frame.add(canvas, BorderLayout.CENTER);
 
         // actions
@@ -248,16 +237,24 @@ public class JourneymapViewer extends JPanel {
                 File selectedDir = minecraftSelector.getSelectedFile();
                 minecraftDirectory = selectedDir.getAbsolutePath();
                 System.out.println("Selected folder: " + minecraftDirectory);
+
+                if (canvas.world == null) {
+                    try {
+                        journeymap = new Journeymap(minecraftDirectory);
+                    } catch (Exception ex) {
+                        throw new RuntimeException(ex);
+                    }
+                    worldSelectButton.dispatchEvent(new ActionEvent(minecraftSelectButton, ActionEvent.ACTION_FIRST, "idk"));
+                    return;
+                }
+
                 canvas.repaint();
             } else {
                 System.out.println("File picker canceled");
             }
 
             if (journeymap != null) {
-                mapTypeMenu.removeAll();
-                for (String d : journeymap.getDimensions()) {
-                    mapTypeMenu.add(new JMenuItem(d));
-                }
+                mapTypeMenu.setEnabled(true);
             }
         });
 
@@ -265,6 +262,9 @@ public class JourneymapViewer extends JPanel {
             frame.getContentPane().add(canvas.getWorldSelector(frame, canvas), BorderLayout.CENTER);
             frame.revalidate();
             canvas.requestFocusInWindow();
+            canvas.world = journeymap.getWorld();
+            mapTypeMenu.setEnabled(true);
+            dimensionMenu.setEnabled(true);
         });
 
         canvas.addKeyListener(new KeyListener() {
@@ -314,6 +314,44 @@ public class JourneymapViewer extends JPanel {
 
         frame.setVisible(true);
         canvas.requestFocus();
+    }
+
+    private static JMenu getDimensionMenu(JourneymapViewer canvas) {
+        JMenu dimensionMenu = new JMenu("Dimension");
+        ActionListener dimensionMenuListener = e -> {
+            JMenuItem source = (JMenuItem) e.getSource();
+            String text = source.getText();
+            try {
+                canvas.currentDimension = Dimension.from(text.toLowerCase());
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        };
+        for (String name : Dimension.names) {
+            JMenuItem menuItem = new JMenuItem(name);
+            menuItem.addActionListener(dimensionMenuListener);
+            dimensionMenu.add(menuItem);
+        }
+        return dimensionMenu;
+    }
+
+    private static JMenu getMapTypeMenu(JourneymapViewer canvas) {
+        JMenu mapTypeMenu = new JMenu("Map Type");
+        ActionListener mapTypeMenuAction = e -> {
+            JMenuItem source = (JMenuItem) e.getSource();
+            String text = source.getText();
+            try {
+                canvas.currentMapType = MapType.from(text.toLowerCase(Locale.ROOT));
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        };
+        for (String name : MapType.names) {
+            JMenuItem menuItem = new JMenuItem(name);
+            menuItem.addActionListener(mapTypeMenuAction);
+            mapTypeMenu.add(menuItem);
+        }
+        return mapTypeMenu;
     }
 
     private static JFileChooser getMinecraftSelector() {

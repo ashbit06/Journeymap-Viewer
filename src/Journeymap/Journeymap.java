@@ -14,15 +14,18 @@ import java.util.List;
 public class Journeymap {
     private final File path;
     private World world;
-    private final HashMap<String, Waypoint> waypoints;
+    private HashMap<String, Waypoint> waypoints;
 
-    public Journeymap(String path, World world) throws Exception {
+    public Journeymap(String path) throws Exception {
         this.path = new File(path);
         if (!this.path.exists()) throw new FileNotFoundException();
         if (!this.path.isDirectory()) throw new NotDirectoryException(path);
         if (this.path.getName().compareTo("journeymap") != 0)
             throw new Exception("selected folder needs to be named \"journeymap\"");
+    }
 
+    public Journeymap(String path, World world) throws Exception {
+        this(path);
         this.world = world;
 
         File file = new File(getFullPath()+"/waypoints/WaypointData.dat");
@@ -83,9 +86,11 @@ public class Journeymap {
     public void setWorld(World world) { this.world = world; }
 
     public List<String> getWorldList(boolean retrieveMultiplayer) {
-        File worlds = new File(path + String.format("/data/%sp", retrieveMultiplayer ? 'm' : 's'));
+        File w = new File(path + String.format("/data/%sp", retrieveMultiplayer ? 'm' : 's'));
+        List<String> worlds = new ArrayList<>(List.of(Objects.requireNonNull(w.list())));
+        worlds.remove(".DS_Store");
 
-        return List.of(Objects.requireNonNull(worlds.list()));
+        return worlds;
     }
 
     public List<String> getDimensions() {
