@@ -31,6 +31,7 @@ public class JourneymapViewer extends JPanel {
 
     private static String minecraftDirectory;
     private static Journeymap journeymap;
+    private String selectedMode;
 
     static {
         try {
@@ -59,6 +60,7 @@ public class JourneymapViewer extends JPanel {
 
     public JourneymapViewer() {
         setBackground(BACKGROUND_COLOR);
+        setFocusable(true);
 
         cachedRegions = new HashMap<>();
         cachedWaypoints = new HashMap<>();
@@ -260,10 +262,9 @@ public class JourneymapViewer extends JPanel {
         });
 
         worldSelectButton.addActionListener(e -> {
-            System.out.println("World select clicked");
-            JDialog worldSelect = getWorldSelector(frame);
-            worldSelect.setLocationRelativeTo(frame);
-            worldSelect.setVisible(true);
+            frame.getContentPane().add(canvas.getWorldSelector(frame, canvas), BorderLayout.CENTER);
+            frame.revalidate();
+            canvas.requestFocusInWindow();
         });
 
         canvas.addKeyListener(new KeyListener() {
@@ -334,42 +335,57 @@ public class JourneymapViewer extends JPanel {
         return minecraftSelector;
     }
 
-    private static JDialog getWorldSelector(Frame frame) {
-        JDialog worldSelector = new JDialog(frame, "Select a World");
-        worldSelector.setLayout(new BorderLayout());
+    private JPanel getWorldSelector(JFrame frame, JPanel panel) {
+        JPanel worldSelector = new JPanel(new BorderLayout());
 
-        JMenu spmpMenu = new JMenu("Singleplayer");
-        spmpMenu.add(new JMenuItem("Singleplayer"));
-        spmpMenu.add(new JMenuItem("Multiplayer"));
-        worldSelector.add(spmpMenu, BorderLayout.NORTH);
+        JMenuBar menuBar = new JMenuBar();
+        JMenu spmpMenu = new JMenu("Select a gamemode");
+        JMenuItem singleplayer = spmpMenu.add(new JMenuItem("Singleplayer"));
+        JMenuItem multiplayer = spmpMenu.add(new JMenuItem("Multiplayer"));
+        menuBar.add(spmpMenu);
+        worldSelector.add(menuBar, BorderLayout.NORTH);
+        selectedMode = "SinglePlayer";
 
-        worldSelector.add(new JSeparator());
+        List<String> worlds = journeymap.getWorldList(false);
+        DefaultListModel<String> worldListModel = new DefaultListModel<>();
+        worldListModel.addAll(worlds);
+        JList<String> worldList = new JList<>(worldListModel);
 
-        JList<String> worldList = new JList<>(journeymap.getWorldList(false).toArray(new String[0]));
         JScrollPane scrollPane = new JScrollPane(worldList);
-        scrollPane.setSize(300, 200);
-        scrollPane.createVerticalScrollBar();
-        scrollPane.setLayout(new ScrollPaneLayout());
+        scrollPane.setPreferredSize(new java.awt.Dimension(300, 200));
         worldSelector.add(scrollPane, BorderLayout.CENTER);
 
-        spmpMenu.addMenuListener(new MenuListener() {
-            @Override
-            public void menuSelected(MenuEvent e) {
-                System.out.printf("selected %s", e);
-            }
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton cancelButton = new JButton("Cancel");
+        JButton doneButton = new JButton("Done");
+        buttons.add(cancelButton);
+        buttons.add(doneButton);
+        worldSelector.add(buttons, BorderLayout.SOUTH);
 
-            @Override
-            public void menuDeselected(MenuEvent e) {
-                System.out.printf("deselected %s", e);
-            }
-
-            @Override
-            public void menuCanceled(MenuEvent e) {
-                System.out.printf("canceled %s", e);
-            }
+        cancelButton.addActionListener(e -> {
+            frame.getContentPane().remove(worldSelector);
+            frame.revalidate();
+            frame.repaint();
+            panel.requestFocusInWindow();
         });
 
-        worldSelector.pack();
+        doneButton.addActionListener(e -> {
+            journeymap.setWorld(new World(worldList.getSelectedValue(), selectedMode.equals("Multiplayer")));
+            frame.getContentPane().remove(worldSelector);
+            frame.revalidate();
+            frame.repaint();
+            panel.requestFocusInWindow();
+        });
+
+        ActionListener menuListener = e -> {
+            JMenuItem source = (JMenuItem) e.getSource();
+            selectedMode = source.getText();
+            worldListModel.removeAllElements();
+            worldListModel.addAll(journeymap.getWorldList(selectedMode.equals("Multiplayer")));
+        };
+        singleplayer.addActionListener(menuListener);
+        multiplayer.addActionListener(menuListener);
+
         return worldSelector;
     }
 }
