@@ -1,5 +1,7 @@
 package Journeymap;
 
+import java.util.List;
+
 public enum MapType {
     CAVE("cave"),
     BIOME("biome"),
@@ -13,6 +15,18 @@ public enum MapType {
 
     private final String id;
     private final boolean hasLayers;
+
+    public static MapType from(String id) throws Exception {
+        if (!List.of(names).contains(id)) throw new Exception(String.format("%s is not a valid dimensions id", id));
+
+        return switch (id) {
+            case "cave" -> CAVE;
+            case "biome" -> BIOME;
+            case "topo" -> TOPO;
+            case "night" -> NIGHT;
+            default -> DAY;
+        };
+    }
 
     MapType(String id) {
         this.id = id;
