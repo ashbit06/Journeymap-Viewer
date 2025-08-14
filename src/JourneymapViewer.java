@@ -1,15 +1,14 @@
-import Journeymap.Journeymap;
-import Journeymap.Waypoint;
-import Journeymap.MapType;
-import Journeymap.World;
+import Journeymap.*;
 import Journeymap.Dimension;
-import Journeymap.PointXZ;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
 import java.awt.*;
-import java.awt.event.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -163,9 +162,14 @@ public class JourneymapViewer extends JPanel {
     }
 
     public void drawWaypoints(Graphics g) {
+        if (journeymap == null) return;
+
+        HashMap<String, Waypoint> waypoints = journeymap.getWaypoints();
+        if (waypoints == null) return;
+
         List<String> usedWaypoints = new ArrayList<>();
-        for (String guid : journeymap.getWaypoints().keySet()) {
-            Waypoint wp = journeymap.getWaypoints().get(guid);
+        for (String guid : waypoints.keySet()) {
+            Waypoint wp = waypoints.get(guid);
 
             BufferedImage icon;
             try {
@@ -183,7 +187,7 @@ public class JourneymapViewer extends JPanel {
 
             if (!(-wp.icon().getWidth() < drawX && drawX < getWidth()) || !(-wp.icon().getHeight() < drawY && drawY < getHeight()))
                 continue;
-            System.out.printf("drawing waypoint %s at (%d, %d)\n", wp.name(), drawX, drawY);
+            System.out.printf("drawing waypoint \"%s\" at (%d, %d)\n", wp.name(), drawX, drawY);
 
             g.drawImage(icon, drawX, drawY, null);
 
