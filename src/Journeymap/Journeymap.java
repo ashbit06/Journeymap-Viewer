@@ -1,15 +1,21 @@
 package Journeymap;
 
 import net.querz.nbt.io.NBTDeserializer;
-import net.querz.nbt.tag.*;
+import net.querz.nbt.tag.CompoundTag;
+import net.querz.nbt.tag.ListTag;
+import net.querz.nbt.tag.StringTag;
+
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.nio.file.*;
-import java.util.*;
+import java.io.IOException;
+import java.nio.file.NotDirectoryException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 
 public class Journeymap {
     private final File path;
@@ -27,7 +33,10 @@ public class Journeymap {
     public Journeymap(String path, World world) throws Exception {
         this(path);
         this.world = world;
+        this.setWaypoints();
+    }
 
+    private void setWaypoints() throws IOException {
         File file = new File(getFullPath()+"/waypoints/WaypointData.dat");
         NBTDeserializer deserializer = new NBTDeserializer(false);
         CompoundTag root = (CompoundTag) deserializer.fromFile(file).getTag();
@@ -51,6 +60,27 @@ public class Journeymap {
                 }
             });
 
+            WaypointIcon waypointIcon;
+            try {
+                waypointIcon = new WaypointIcon(
+                        icon.getString("resourceLocation"),
+                        new Color(wp.getInt("color")),
+                        icon.getInt("textureWidth"),
+                        icon.getInt("textureHeight")
+                );
+            } catch (FileNotFoundException e) {
+                try {
+                    waypointIcon = new WaypointIcon(
+                            new File("assets/waypoint-icon.png"),
+                            new Color(wp.getInt("color")),
+                            icon.getInt("textureWidth"),
+                            icon.getInt("textureHeight")
+                    );
+                } catch (FileNotFoundException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }
+
             Waypoint waypoint = new Waypoint(
                     wp.getString("name"),
                     new PointXYZ(
@@ -59,12 +89,7 @@ public class Journeymap {
                             pos.getInt("z")
                     ),
                     dimensions.toArray(new Dimension[0]),
-                    new WaypointIcon(
-                            icon.getString("resourceLocation"),
-                            new Color(wp.getInt("color")),
-                            icon.getInt("textureWidth"),
-                            icon.getInt("textureHeight")
-                    ),
+                    waypointIcon,
                     wp.getString("guid")
             );
             System.out.println(waypoint);
@@ -72,7 +97,6 @@ public class Journeymap {
             this.waypoints.put(waypoint.guid(), waypoint);
             i++;
         }
-
     }
 
     public File getPath() { return this.path; }
@@ -83,7 +107,10 @@ public class Journeymap {
 
     public World getWorld() { return this.world; }
 
-    public void setWorld(World world) { this.world = world; }
+    public void setWorld(World w) throws IOException {
+        world = w;
+        setWaypoints();
+    }
 
     public List<String> getWorldList(boolean retrieveMultiplayer) {
         File w = new File(path + String.format("/data/%sp", retrieveMultiplayer ? 'm' : 's'));
