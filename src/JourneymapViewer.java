@@ -198,6 +198,115 @@ public class JourneymapViewer extends JPanel {
         cachedWaypoints.keySet().removeIf(k -> !usedWaypoints.contains(k.guid()));
     }
 
+    private static JMenu getDimensionMenu(JourneymapViewer canvas) {
+        JMenu dimensionMenu = new JMenu("Dimension");
+        ActionListener dimensionMenuListener = e -> {
+            JMenuItem source = (JMenuItem) e.getSource();
+            String text = source.getText();
+            try {
+                canvas.currentDimension = Dimension.from(text.toLowerCase());
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        };
+        for (String name : Dimension.names) {
+            JMenuItem menuItem = new JMenuItem(name);
+            menuItem.addActionListener(dimensionMenuListener);
+            dimensionMenu.add(menuItem);
+        }
+        return dimensionMenu;
+    }
+
+    private static JMenu getMapTypeMenu(JourneymapViewer canvas) {
+        JMenu mapTypeMenu = new JMenu("Map Type");
+        ActionListener mapTypeMenuAction = e -> {
+            JMenuItem source = (JMenuItem) e.getSource();
+            String text = source.getText();
+            try {
+                canvas.currentMapType = MapType.from(text.toLowerCase(Locale.ROOT));
+            } catch (Exception ex) {
+                throw new RuntimeException(ex);
+            }
+        };
+        for (String name : MapType.names) mapTypeMenu.add(new JMenuItem(name)).addActionListener(mapTypeMenuAction);
+        return mapTypeMenu;
+    }
+
+    private static JFileChooser getMinecraftSelector() {
+        JFileChooser minecraftSelector = new JFileChooser();
+        minecraftSelector.setDialogTitle("Select your folder");
+        minecraftSelector.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        minecraftSelector.setFileFilter(new FileFilter() {
+            @Override
+            public boolean accept(File f) {
+                return f.isDirectory() && f.getName().equals("journeymap");
+            }
+
+            @Override
+            public String getDescription() {
+                return "";
+            }
+        });
+        minecraftSelector.setAcceptAllFileFilterUsed(false);
+        return minecraftSelector;
+    }
+
+    private static JPanel getWorldSelector(JFrame frame, JourneymapViewer canvas) {
+        JPanel worldSelector = new JPanel(new BorderLayout());
+
+        JMenuBar menuBar = new JMenuBar();
+        JMenu spmpMenu = new JMenu("Select a gamemode");
+        JMenuItem singleplayer = spmpMenu.add(new JMenuItem("Singleplayer"));
+        JMenuItem multiplayer = spmpMenu.add(new JMenuItem("Multiplayer"));
+        menuBar.add(spmpMenu);
+        worldSelector.add(menuBar, BorderLayout.NORTH);
+        canvas.selectedMode = "SinglePlayer";
+
+        List<String> worlds = journeymap.getWorldList(false);
+        DefaultListModel<String> worldListModel = new DefaultListModel<>();
+        worldListModel.addAll(worlds);
+        JList<String> worldList = new JList<>(worldListModel);
+
+        JScrollPane scrollPane = new JScrollPane(worldList);
+        scrollPane.setPreferredSize(new java.awt.Dimension(300, 200));
+        worldSelector.add(scrollPane, BorderLayout.CENTER);
+
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton cancelButton = new JButton("Cancel");
+        JButton doneButton = new JButton("Done");
+        buttons.add(cancelButton);
+        buttons.add(doneButton);
+        worldSelector.add(buttons, BorderLayout.SOUTH);
+
+        cancelButton.addActionListener(e -> {
+            frame.getContentPane().remove(worldSelector);
+            frame.revalidate();
+            frame.repaint();
+            canvas.requestFocusInWindow();
+        });
+
+        doneButton.addActionListener(e -> {
+            journeymap.setWorld(new World(worldList.getSelectedValue(), canvas.selectedMode.equals("Multiplayer")));
+            frame.getContentPane().remove(worldSelector);
+            frame.revalidate();
+            frame.repaint();
+            canvas.requestFocusInWindow();
+        });
+
+        ActionListener menuListener = e -> {
+            JMenuItem source = (JMenuItem) e.getSource();
+            String text = source.getText();
+            spmpMenu.setText(text);
+            canvas.selectedMode = text;
+            worldListModel.removeAllElements();
+            worldListModel.addAll(journeymap.getWorldList(canvas.selectedMode.equals("Multiplayer")));
+        };
+        singleplayer.addActionListener(menuListener);
+        multiplayer.addActionListener(menuListener);
+
+        return worldSelector;
+    }
+
     public static void main(String[] args) throws Exception {
         JourneymapViewer canvas = new JourneymapViewer();
         JFrame frame = new JFrame("Journeymap Viewer");
@@ -329,114 +438,5 @@ public class JourneymapViewer extends JPanel {
 
         frame.setVisible(true);
         canvas.requestFocus();
-    }
-
-    private static JMenu getDimensionMenu(JourneymapViewer canvas) {
-        JMenu dimensionMenu = new JMenu("Dimension");
-        ActionListener dimensionMenuListener = e -> {
-            JMenuItem source = (JMenuItem) e.getSource();
-            String text = source.getText();
-            try {
-                canvas.currentDimension = Dimension.from(text.toLowerCase());
-            } catch (Exception ex) {
-                throw new RuntimeException(ex);
-            }
-        };
-        for (String name : Dimension.names) {
-            JMenuItem menuItem = new JMenuItem(name);
-            menuItem.addActionListener(dimensionMenuListener);
-            dimensionMenu.add(menuItem);
-        }
-        return dimensionMenu;
-    }
-
-    private static JMenu getMapTypeMenu(JourneymapViewer canvas) {
-        JMenu mapTypeMenu = new JMenu("Map Type");
-        ActionListener mapTypeMenuAction = e -> {
-            JMenuItem source = (JMenuItem) e.getSource();
-            String text = source.getText();
-            try {
-                canvas.currentMapType = MapType.from(text.toLowerCase(Locale.ROOT));
-            } catch (Exception ex) {
-                throw new RuntimeException(ex);
-            }
-        };
-        for (String name : MapType.names) mapTypeMenu.add(new JMenuItem(name)).addActionListener(mapTypeMenuAction);
-        return mapTypeMenu;
-    }
-
-    private static JFileChooser getMinecraftSelector() {
-        JFileChooser minecraftSelector = new JFileChooser();
-        minecraftSelector.setDialogTitle("Select your folder");
-        minecraftSelector.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        minecraftSelector.setFileFilter(new FileFilter() {
-            @Override
-            public boolean accept(File f) {
-                return f.isDirectory() && f.getName().equals("journeymap");
-            }
-
-            @Override
-            public String getDescription() {
-                return "";
-            }
-        });
-        minecraftSelector.setAcceptAllFileFilterUsed(false);
-        return minecraftSelector;
-    }
-
-    private static JPanel getWorldSelector(JFrame frame, JourneymapViewer canvas) {
-        JPanel worldSelector = new JPanel(new BorderLayout());
-
-        JMenuBar menuBar = new JMenuBar();
-        JMenu spmpMenu = new JMenu("Select a gamemode");
-        JMenuItem singleplayer = spmpMenu.add(new JMenuItem("Singleplayer"));
-        JMenuItem multiplayer = spmpMenu.add(new JMenuItem("Multiplayer"));
-        menuBar.add(spmpMenu);
-        worldSelector.add(menuBar, BorderLayout.NORTH);
-        canvas.selectedMode = "SinglePlayer";
-
-        List<String> worlds = journeymap.getWorldList(false);
-        DefaultListModel<String> worldListModel = new DefaultListModel<>();
-        worldListModel.addAll(worlds);
-        JList<String> worldList = new JList<>(worldListModel);
-
-        JScrollPane scrollPane = new JScrollPane(worldList);
-        scrollPane.setPreferredSize(new java.awt.Dimension(300, 200));
-        worldSelector.add(scrollPane, BorderLayout.CENTER);
-
-        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        JButton cancelButton = new JButton("Cancel");
-        JButton doneButton = new JButton("Done");
-        buttons.add(cancelButton);
-        buttons.add(doneButton);
-        worldSelector.add(buttons, BorderLayout.SOUTH);
-
-        cancelButton.addActionListener(e -> {
-            frame.getContentPane().remove(worldSelector);
-            frame.revalidate();
-            frame.repaint();
-            canvas.requestFocusInWindow();
-        });
-
-        doneButton.addActionListener(e -> {
-            journeymap.setWorld(new World(worldList.getSelectedValue(), canvas.selectedMode.equals("Multiplayer")));
-            frame.getContentPane().remove(worldSelector);
-            frame.revalidate();
-            frame.repaint();
-            canvas.requestFocusInWindow();
-        });
-
-        ActionListener menuListener = e -> {
-            JMenuItem source = (JMenuItem) e.getSource();
-            String text = source.getText();
-            spmpMenu.setText(text);
-            canvas.selectedMode = text;
-            worldListModel.removeAllElements();
-            worldListModel.addAll(journeymap.getWorldList(canvas.selectedMode.equals("Multiplayer")));
-        };
-        singleplayer.addActionListener(menuListener);
-        multiplayer.addActionListener(menuListener);
-
-        return worldSelector;
     }
 }
