@@ -329,13 +329,13 @@ public class JourneymapViewer extends JPanel {
         JButton worldSelectButton = new JButton("select world");
         toolbar.add(worldSelectButton);
 
-        JMenu mapTypeMenu = getMapTypeMenu(canvas);
-        toolbar.add(mapTypeMenu);
-        mapTypeMenu.setEnabled(false);
-
         JMenu dimensionMenu = getDimensionMenu(canvas);
         toolbar.add(dimensionMenu);
         dimensionMenu.setEnabled(false);
+
+        JMenu mapTypeMenu = getMapTypeMenu(canvas);
+        toolbar.add(mapTypeMenu);
+        mapTypeMenu.setEnabled(false);
 
         // FIXME: slider never returns focus to the canvas
         JSlider caveLayerSlider = new JSlider(JSlider.HORIZONTAL, -4, 23, canvas.caveLayer);
