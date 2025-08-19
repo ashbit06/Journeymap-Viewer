@@ -51,6 +51,13 @@ public class Journeymap {
             ListTag<StringTag> dims = (ListTag<StringTag>) wp.getListTag("dimensions");
             CompoundTag icon = wp.getCompoundTag("icon");
 
+            Dimension primary;
+            try {
+                primary = Dimension.from(pos.getString("dimension"));
+            } catch (Exception e) {
+                primary = Dimension.OVERWORLD;
+            }
+
             List<Dimension> dimensions = new ArrayList<>();
             dims.forEach(d -> {
                 try {
@@ -62,12 +69,14 @@ public class Journeymap {
 
             WaypointIcon waypointIcon;
             try {
+                String[] a = icon.getString("resourceLocation").split("/");
                 waypointIcon = new WaypointIcon(
-                        icon.getString("resourceLocation"),
+                        String.format("assets/%s", a[a.length-1]),
                         new Color(wp.getInt("color")),
                         icon.getInt("textureWidth"),
                         icon.getInt("textureHeight")
                 );
+                System.out.println(icon.getString("resourceLocation"));
             } catch (FileNotFoundException e) {
                 try {
                     waypointIcon = new WaypointIcon(
@@ -88,11 +97,12 @@ public class Journeymap {
                             pos.getInt("y"),
                             pos.getInt("z")
                     ),
+                    primary,
                     dimensions.toArray(new Dimension[0]),
                     waypointIcon,
                     wp.getString("guid")
             );
-            System.out.println(waypoint);
+//            System.out.println(waypoint);
 
             this.waypoints.put(waypoint.guid(), waypoint);
             i++;
@@ -143,7 +153,7 @@ public class Journeymap {
         if (mapType == MapType.CAVE)
             throw new Exception("when using the cave map, you must include a Y value");
 
-        System.out.printf("%s/%s/%s/%d,%d.png%n", this.getFullPath(), dimension.getId(), mapType.getId(), x, z);
+//        System.out.printf("%s/%s/%s/%d,%d.png%n", this.getFullPath(), dimension.getId(), mapType.getId(), x, z);
         File regionPath = new File(String.format("%s/%s/%s/%d,%d.png", this.getFullPath(), dimension.getId(), mapType.getId(), x, z));
         if (!regionPath.exists()) {
             System.out.printf("region %d,%d has not been mapped yet.\n", x, z);
@@ -160,7 +170,7 @@ public class Journeymap {
     public BufferedImage getCaveRegion(Dimension dimension, int x, int y, int z) throws Exception {
         if (y > 23 || y < -4) throw new Exception("Y value needs to be between -4 and 23 inclusive");
 
-        System.out.printf("%s/%s/%d/%d,%d.png%n", this.getFullPath(), dimension.getId(), y, x, z);
+//        System.out.printf("%s/%s/%d/%d,%d.png%n", this.getFullPath(), dimension.getId(), y, x, z);
         File regionPath = new File(String.format("%s/%s/%d/%d,%d.png", this.getFullPath(), dimension.getId(), y, x, z));
         if (!regionPath.exists()) {
             System.out.printf("region %d/%d,%d has not been mapped yet.\n", y, x, z);
