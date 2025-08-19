@@ -10,6 +10,10 @@ public class PointXYZ extends Point {
         this.z = z;
     }
 
+    public PointXZ getXZ() {
+        return new PointXZ(x, z);
+    }
+
     @Override
     public String toString() {
         return String.format("PointXYZ[x=%d,y=%d,z=%d]", x, y, z);
