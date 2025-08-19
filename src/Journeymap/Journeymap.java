@@ -30,12 +30,6 @@ public class Journeymap {
             throw new Exception("selected folder needs to be named \"journeymap\"");
     }
 
-    public Journeymap(String path, World world) throws Exception {
-        this(path);
-        this.world = world;
-        this.setWaypoints();
-    }
-
     private void setWaypoints() throws IOException {
         File file = new File(getFullPath()+"/waypoints/WaypointData.dat");
         NBTDeserializer deserializer = new NBTDeserializer(false);
@@ -44,7 +38,6 @@ public class Journeymap {
         CompoundTag waypoints = root.getCompoundTag("waypoints");
         this.waypoints = new HashMap<>();
 
-        int i = 0;
         for (String key : waypoints.keySet()) {
             CompoundTag wp = waypoints.getCompoundTag(key);
             CompoundTag pos = wp.getCompoundTag("pos");
@@ -105,7 +98,6 @@ public class Journeymap {
 //            System.out.println(waypoint);
 
             this.waypoints.put(waypoint.guid(), waypoint);
-            i++;
         }
     }
 
