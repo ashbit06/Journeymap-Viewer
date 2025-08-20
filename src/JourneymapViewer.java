@@ -5,10 +5,7 @@ import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
+import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -16,7 +13,6 @@ import java.util.*;
 import java.util.List;
 
 public class JourneymapViewer extends JPanel {
-    private static final int TOOLBAR_HEIGHT = 40;
     private static final int REGION_SIZE = 512;
 
     private static final Color TOOLBAR_COLOR = new Color(50, 50, 50);
@@ -24,12 +20,10 @@ public class JourneymapViewer extends JPanel {
 
     private static Journeymap journeymap;
     private static String minecraftDirectory;
-    private World world;
     private Dimension currentDimension;
     private MapType currentMapType;
     private int caveLayer = 23;
     private String selectedMode;
-
 
     private int panX = 0;
     private int panY = 0;
@@ -42,11 +36,37 @@ public class JourneymapViewer extends JPanel {
     public JourneymapViewer() {
         setBackground(BACKGROUND_COLOR);
         setFocusable(true);
+        recenter();
 
         cachedRegions = new HashMap<>();
         cachedWaypoints = new HashMap<>();
         currentDimension = Dimension.OVERWORLD;
         currentMapType = MapType.DAY;
+
+        addMouseMotionListener(new MouseMotionAdapter() {
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                repaint();
+            }
+        });
+
+        addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                requestFocus();
+            }
+
+            @Override
+            public void mouseWheelMoved(MouseWheelEvent e) {
+                int scroll = e.getScrollAmount();
+
+                if (scroll < 0) {
+                    zoomAt(0.9f, getMousePosition());
+                } else if (scroll > 0) {
+                    zoomAt(1.1f, getMousePosition());
+                }
+            }
+        });
     }
 
     @Override
@@ -57,6 +77,8 @@ public class JourneymapViewer extends JPanel {
         setViewableRectangle();
         drawRegions(g);
         drawWaypoints(g);
+        drawWaypointLabel(g);
+        drawOverlays(g);
 
         System.out.println(Arrays.toString(viewableRectangle));
     }
@@ -83,10 +105,29 @@ public class JourneymapViewer extends JPanel {
         repaint();
     }
 
+    public void recenter() {
+        panX = -(getWidth()/2);
+        panY = -(getHeight()/2);
+    }
+
     public Point getCenter() {
         return new Point(
                 getWidth() / 2,
                 getHeight() / 2
+        );
+    }
+
+    public Point getMapToScreen(PointXZ p) {
+        return new Point(
+                (int)((p.x * zoom) - panX),
+                (int)((p.z * zoom) - panY)
+        );
+    }
+
+    public PointXZ getScreenToMap(Point p) {
+        return new PointXZ(
+                (int)((p.x + panX) / zoom),
+                (int)((p.y + panY) / zoom)
         );
     }
 
@@ -108,6 +149,8 @@ public class JourneymapViewer extends JPanel {
 
     public void drawRegions(Graphics g) {
         if (journeymap == null) return;
+        if (journeymap.getWorld() == null) return;
+
         Graphics2D g2 = (Graphics2D) g;
         int regionTileSize = (int)(REGION_SIZE * zoom);
 
@@ -153,7 +196,6 @@ public class JourneymapViewer extends JPanel {
                 );
 
                 usedRegions.add(regionXZ);
-                // System.out.printf("Draw %d,%d at screen %d,%d\n", regionX, regionZ, drawX, drawY);
             }
         }
 
@@ -163,13 +205,13 @@ public class JourneymapViewer extends JPanel {
 
     public void drawWaypoints(Graphics g) {
         if (journeymap == null) return;
-
-        HashMap<String, Waypoint> waypoints = journeymap.getWaypoints();
-        if (waypoints == null) return;
+        if (journeymap.getWorld() == null) return;
 
         List<String> usedWaypoints = new ArrayList<>();
-        for (String guid : waypoints.keySet()) {
-            Waypoint wp = waypoints.get(guid);
+        List<String> filtered = journeymap.getWaypoints().keySet().stream().filter(
+                name -> journeymap.getWaypoints().get(name).primaryDimension() == currentDimension).toList();
+        for (String guid : filtered) {
+            Waypoint wp = journeymap.getWaypoints().get(guid);
 
             BufferedImage icon;
             try {
@@ -182,14 +224,12 @@ public class JourneymapViewer extends JPanel {
                 throw new RuntimeException(ex);
             }
 
-            int drawX = -(int)((wp.position().x + viewableRectangle[0]) * zoom);
-            int drawY = -(int)((wp.position().y + viewableRectangle[1]) * zoom);
+            Point drawXY = getMapToScreen(wp.position().getXZ());
 
-            if (!(-wp.icon().getWidth() < drawX && drawX < getWidth()) || !(-wp.icon().getHeight() < drawY && drawY < getHeight()))
+            if (!(-wp.icon().getWidth() < drawXY.x && drawXY.x < getWidth()) || !(-wp.icon().getHeight() < drawXY.y && drawXY.y < getHeight()))
                 continue;
-            System.out.printf("drawing waypoint \"%s\" at (%d, %d)\n", wp.name(), drawX, drawY);
 
-            g.drawImage(icon, drawX, drawY, null);
+            g.drawImage(icon, drawXY.x-icon.getWidth()/2, drawXY.y-icon.getHeight()/2, null);
 
             // clear cache
             usedWaypoints.add(guid);
@@ -198,13 +238,71 @@ public class JourneymapViewer extends JPanel {
         cachedWaypoints.keySet().removeIf(k -> !usedWaypoints.contains(k.guid()));
     }
 
+    public void drawWaypointLabel(Graphics g) {
+        Point mousePos = getMousePosition();
+        if (mousePos == null) return;
+
+        Graphics2D g2 = (Graphics2D) g;
+        Font font = g2.getFont();
+        FontMetrics metrics = g2.getFontMetrics(font);
+
+        for (Waypoint waypoint : cachedWaypoints.keySet()) {
+            Point drawWp = getMapToScreen(waypoint.position().getXZ());
+            if (Point.distance(mousePos.x, mousePos.y, drawWp.x, drawWp.y) < 10) {
+                String name = waypoint.name();
+
+                int textWidth = metrics.stringWidth(name);
+                int textHeight = metrics.getHeight();
+
+                int x = drawWp.x - textWidth / 2 - 2;
+                int y = drawWp.y - textHeight / 2 + metrics.getAscent() + waypoint.icon().getHeight() / 2;
+
+                g2.setColor(new Color(0, 0, 0, 128));
+                g2.fillRect(x-2, y-2, textWidth+4, textHeight+4);
+                g2.setColor(waypoint.icon().getColor());
+                g2.drawString(name, x, y+textHeight-4);
+            }
+        }
+    }
+
+    public void drawOverlays(Graphics g) {
+        Point mousePos = getMousePosition();
+        if (mousePos == null) return;
+        PointXZ mapPos = getScreenToMap(mousePos);
+
+        Graphics2D g2 = (Graphics2D) g;
+        Font font = g2.getFont();
+        FontMetrics metrics = g2.getFontMetrics(font);
+
+        String text = String.format("X: %d   Z: %d", mapPos.x, mapPos.z);
+
+        int textWidth = metrics.stringWidth(text);
+        int textHeight = metrics.getHeight();
+
+        int x = (getWidth() - textWidth) / 2;
+        int y = getHeight() - 20 - textHeight / 2 + metrics.getAscent();
+
+        g2.setColor(new Color(0, 0, 0, 128));
+        g2.fillRect(x-2, y-2, textWidth+4, textHeight+4);
+        g2.setColor(Color.white);
+        g2.drawString(text, x, y+textHeight-4);
+    }
+
     private static JMenu getDimensionMenu(JourneymapViewer canvas) {
         JMenu dimensionMenu = new JMenu("Dimension");
         ActionListener dimensionMenuListener = e -> {
             JMenuItem source = (JMenuItem) e.getSource();
             String text = source.getText();
+            System.out.println(text);
             try {
                 canvas.currentDimension = Dimension.from(text.toLowerCase());
+                canvas.cachedRegions.keySet().forEach(canvas.cachedRegions::remove);
+                canvas.cachedWaypoints.keySet().forEach(canvas.cachedWaypoints::remove);
+                if (text.equals(Dimension.NETHER.getId())) {
+                    canvas.currentMapType = MapType.CAVE;
+                    canvas.caveLayer = 14;
+                }
+                canvas.repaint();
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
             }
@@ -223,7 +321,10 @@ public class JourneymapViewer extends JPanel {
             JMenuItem source = (JMenuItem) e.getSource();
             String text = source.getText();
             try {
-                canvas.currentMapType = MapType.from(text.toLowerCase(Locale.ROOT));
+                canvas.currentMapType = MapType.from(text.toLowerCase());
+                canvas.cachedRegions.keySet().forEach(canvas.cachedRegions::remove);
+                canvas.cachedWaypoints.keySet().forEach(canvas.cachedWaypoints::remove);
+                canvas.repaint();
             } catch (Exception ex) {
                 throw new RuntimeException(ex);
             }
@@ -286,7 +387,13 @@ public class JourneymapViewer extends JPanel {
         });
 
         doneButton.addActionListener(e -> {
-            journeymap.setWorld(new World(worldList.getSelectedValue(), canvas.selectedMode.equals("Multiplayer")));
+            try {
+                journeymap.setWorld(new World(worldList.getSelectedValue(), canvas.selectedMode.equals("Multiplayer")));
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+            Settings.saveLastWorld(String.format("%d%s", journeymap.getWorld().isMultiplayer()?1:0, journeymap.getWorld().name()));
+            frame.setTitle(String.format("Journeymap Viewer (%s/%s)", journeymap.getPath().getName(), journeymap.getWorld().name()));
             frame.getContentPane().remove(worldSelector);
             frame.revalidate();
             frame.repaint();
@@ -307,6 +414,26 @@ public class JourneymapViewer extends JPanel {
         return worldSelector;
     }
 
+    private static void restoreSettings() {
+        String p = Settings.getLastJourneymap();
+        if (p != null) {
+            try {
+                journeymap = new Journeymap(p);
+            } catch (Exception e) {
+                System.out.println("Unable to properly restore the last journeymap");
+            }
+        }
+
+        String w = Settings.getLastWorld();
+        if (w != null) {
+            try {
+                journeymap.setWorld(new World(w.substring(1), w.charAt(0) > 1));
+            } catch (IOException e) {
+                System.out.println("Unable to properly restore the last world");
+            }
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         JourneymapViewer canvas = new JourneymapViewer();
         JFrame frame = new JFrame("Journeymap Viewer");
@@ -319,7 +446,6 @@ public class JourneymapViewer extends JPanel {
 
         JMenuBar toolbar = new JMenuBar();
         toolbar.setBackground(TOOLBAR_COLOR);
-        toolbar.setPreferredSize(new java.awt.Dimension(frame.getWidth(), TOOLBAR_HEIGHT));
         toolbar.setLayout(new FlowLayout(FlowLayout.LEFT));
         frame.add(toolbar, BorderLayout.NORTH);
 
@@ -328,6 +454,7 @@ public class JourneymapViewer extends JPanel {
 
         JButton worldSelectButton = new JButton("select world");
         toolbar.add(worldSelectButton);
+        worldSelectButton.setEnabled(false);
 
         JMenu dimensionMenu = getDimensionMenu(canvas);
         toolbar.add(dimensionMenu);
@@ -337,7 +464,6 @@ public class JourneymapViewer extends JPanel {
         toolbar.add(mapTypeMenu);
         mapTypeMenu.setEnabled(false);
 
-        // FIXME: slider never returns focus to the canvas
         JSlider caveLayerSlider = new JSlider(JSlider.HORIZONTAL, -4, 23, canvas.caveLayer);
         JLabel caveLayerLabel = new JLabel(String.valueOf(canvas.caveLayer));
         toolbar.add(caveLayerSlider);
@@ -355,22 +481,23 @@ public class JourneymapViewer extends JPanel {
                 minecraftDirectory = selectedDir.getAbsolutePath();
                 System.out.println("Selected folder: " + minecraftDirectory);
 
-                if (canvas.world == null) {
-                    try {
-                        journeymap = new Journeymap(minecraftDirectory);
-                    } catch (Exception ex) {
-                        throw new RuntimeException(ex);
-                    }
-                    worldSelectButton.dispatchEvent(new ActionEvent(minecraftSelectButton, ActionEvent.ACTION_FIRST, "idk"));
-                    return;
+                try {
+                    journeymap = new Journeymap(minecraftDirectory);
+                } catch (Exception ex) {
+                    throw new RuntimeException(ex);
                 }
+                worldSelectButton.dispatchEvent(new ActionEvent(minecraftSelectButton, ActionEvent.ACTION_FIRST, "idk"));
 
-                canvas.repaint();
+                if (journeymap != null) {
+                    Settings.saveLastJourneymap(journeymap.getPath().getAbsolutePath());
+                    if (journeymap.getWorld() != null) canvas.repaint();
+                }
             } else {
                 System.out.println("File picker canceled");
             }
 
             if (journeymap != null) {
+                worldSelectButton.setEnabled(true);
                 mapTypeMenu.setEnabled(true);
             }
         });
@@ -379,7 +506,6 @@ public class JourneymapViewer extends JPanel {
             frame.getContentPane().add(getWorldSelector(frame, canvas), BorderLayout.CENTER);
             frame.revalidate();
             canvas.requestFocusInWindow();
-            canvas.world = journeymap.getWorld();
             mapTypeMenu.setEnabled(true);
             dimensionMenu.setEnabled(true);
         });
@@ -389,19 +515,16 @@ public class JourneymapViewer extends JPanel {
             int value = source.getValue();
             caveLayerLabel.setText(String.valueOf(value));
             canvas.caveLayer = value;
+            canvas.cachedRegions.keySet().forEach(canvas.cachedRegions::remove);
             canvas.repaint();
         });
 
-        canvas.addKeyListener(new KeyListener() {
-            @Override
-            public void keyTyped(KeyEvent e) {
-
-            }
-
+        canvas.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                int key = e.getKeyCode();
+                if (journeymap == null) return;
 
+                int key = e.getKeyCode();
                 switch (key) {
                     case 38: // up
                         canvas.panY -= canvas.panSpeed;
@@ -429,14 +552,20 @@ public class JourneymapViewer extends JPanel {
                         break;
                 }
             }
-
-            @Override
-            public void keyReleased(KeyEvent e) {
-
-            }
         });
 
         frame.setVisible(true);
+        canvas.recenter();
         canvas.requestFocus();
+
+        restoreSettings();
+        if (journeymap != null) {
+            worldSelectButton.setEnabled(true);
+            if (journeymap.getWorld() != null) {
+                mapTypeMenu.setEnabled(true);
+                dimensionMenu.setEnabled(true);
+                canvas.repaint();
+            }
+        }
     }
 }
