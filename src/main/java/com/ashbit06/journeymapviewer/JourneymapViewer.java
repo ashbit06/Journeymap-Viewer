@@ -1,3 +1,5 @@
+package com.ashbit06.journeymapviewer;
+
 import Journeymap.*;
 import Journeymap.Dimension;
 

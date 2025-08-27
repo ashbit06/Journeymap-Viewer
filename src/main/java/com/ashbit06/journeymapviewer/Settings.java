@@ -1,3 +1,5 @@
+package com.ashbit06.journeymapviewer;
+
 import java.util.prefs.Preferences;
 
 public class Settings {
