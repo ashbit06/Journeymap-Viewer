@@ -1,4 +1,4 @@
-package Journeymap;
+package com.ashbit06.journeymapviewer.Journeymap;
 
 import java.awt.*;
 

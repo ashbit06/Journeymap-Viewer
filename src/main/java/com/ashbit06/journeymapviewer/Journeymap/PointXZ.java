@@ -1,6 +1,6 @@
-package Journeymap;
+package com.ashbit06.journeymapviewer.Journeymap;
 
-import java.awt.Point;
+import java.awt.*;
 
 public class PointXZ extends Point {
     public final int x;

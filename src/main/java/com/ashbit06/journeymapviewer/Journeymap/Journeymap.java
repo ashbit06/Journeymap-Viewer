@@ -1,4 +1,4 @@
-package Journeymap;
+package com.ashbit06.journeymapviewer.Journeymap;
 
 import net.querz.nbt.io.NBTDeserializer;
 import net.querz.nbt.tag.CompoundTag;

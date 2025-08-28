@@ -1,7 +1,7 @@
 package com.ashbit06.journeymapviewer;
 
-import Journeymap.*;
-import Journeymap.Dimension;
+import com.ashbit06.journeymapviewer.Journeymap.*;
+import com.ashbit06.journeymapviewer.Journeymap.Dimension;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;

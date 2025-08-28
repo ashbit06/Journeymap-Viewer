@@ -1,4 +1,4 @@
-package Journeymap;
+package com.ashbit06.journeymapviewer.Journeymap;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -6,8 +6,8 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Objects;
 import java.util.List;
+import java.util.Objects;
 
 
 public final class WaypointIcon {

@@ -1,4 +1,4 @@
-package Journeymap;
+package com.ashbit06.journeymapviewer.Journeymap;
 
 public record World(String name, boolean isMultiplayer) {
     @Override

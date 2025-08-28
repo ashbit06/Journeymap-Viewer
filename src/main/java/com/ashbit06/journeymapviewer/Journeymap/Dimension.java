@@ -1,7 +1,6 @@
-package Journeymap;
+package com.ashbit06.journeymapviewer.Journeymap;
 
 import java.util.List;
-import java.util.Objects;
 
 public enum Dimension {
     OVERWORLD("overworld"),
