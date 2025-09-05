@@ -73,7 +73,7 @@ public class Journeymap {
             } catch (FileNotFoundException e) {
                 try {
                     waypointIcon = new WaypointIcon(
-                            new File("assets/waypoint-icon.png"),
+                            "waypoint-icon.png",
                             new Color(wp.getInt("color")),
                             icon.getInt("textureWidth"),
                             icon.getInt("textureHeight")

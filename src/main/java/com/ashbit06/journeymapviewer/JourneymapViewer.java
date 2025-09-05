@@ -85,6 +85,14 @@ public class JourneymapViewer extends JPanel {
         System.out.println(Arrays.toString(viewableRectangle));
     }
 
+//    public void resetPane(JPanel frame) {
+//        // After removing worldSelector:
+//        frame.setContentPane(getParent());
+//        frame.revalidate();
+//        frame.repaint();
+//        requestFocusInWindow();
+//    }
+
     public void setZoom(float value) {
         if (value <= 0.0f) throw new IllegalArgumentException("Zoom must be > 0");
         zoom = value;
@@ -419,10 +427,16 @@ public class JourneymapViewer extends JPanel {
     private static void restoreSettings() {
         String p = Settings.getLastJourneymap();
         if (p != null) {
+            if (!new File(p).exists()) {
+                Settings.clearLastJourneymap();
+                return;
+            }
             try {
                 journeymap = new Journeymap(p);
             } catch (Exception e) {
                 System.out.println("Unable to properly restore the last journeymap");
+                Settings.clearLastJourneymap();
+                return;
             }
         }
 
@@ -432,6 +446,7 @@ public class JourneymapViewer extends JPanel {
                 journeymap.setWorld(new World(w.substring(1), w.charAt(0) > 1));
             } catch (IOException e) {
                 System.out.println("Unable to properly restore the last world");
+                Settings.clearLastWorld();
             }
         }
     }
@@ -439,7 +454,7 @@ public class JourneymapViewer extends JPanel {
     public static void main(String[] args) throws Exception {
         JourneymapViewer canvas = new JourneymapViewer();
         JFrame frame = new JFrame("Journeymap Viewer");
-        frame.setIconImage(ImageIO.read(new File("assets/icon.png")));
+        frame.setIconImage(ImageIO.read(Objects.requireNonNull(JourneymapViewer.class.getResourceAsStream("/assets/icon.png"))));
         frame.setSize(800, 500);
         frame.setMinimumSize(new java.awt.Dimension(800, 500));
         frame.setLocationRelativeTo(null);

@@ -3,36 +3,30 @@ package com.ashbit06.journeymapviewer.Journeymap;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Objects;
 
 
 public final class WaypointIcon {
-    private final File assetFile;
+    public static final List<String> ASSET_LIST = List.of(
+        "waypoint-icon.png",
+        "waypoint-death-icon.png",
+        "waypoint-house.png",
+        "waypoint-house-2.png"
+    );
+
+    private final InputStream assetStream;
     private final Color color;
     private final int width;
     private final int height;
 
-    public WaypointIcon(String resourceLocation, Color color, int width, int height) throws FileNotFoundException {
-        System.out.println(resourceLocation);
+    public WaypointIcon(String resourceName, Color color, int width, int height) throws FileNotFoundException {
+        if (!ASSET_LIST.contains(resourceName)) this.assetStream = WaypointIcon.class.getResourceAsStream("/assets/waypoint-icon.png");
+        else this.assetStream = WaypointIcon.class.getResourceAsStream("/assets/" + resourceName);
 
-        List<String> assets = java.util.List.of(Objects.requireNonNull(new File("assets").list()));
-        if (!assets.contains(resourceLocation)) this.assetFile = new File("assets/waypoint-icon.png");
-        else if (new File(resourceLocation).exists()) this.assetFile = new File(resourceLocation);
-        else throw new FileNotFoundException();
-
-        this.color = color;
-        this.width = width;
-        this.height = height;
-    }
-
-    public WaypointIcon(File assetFile, Color color, int width, int height) throws FileNotFoundException {
-        if (!assetFile.exists()) throw new FileNotFoundException();
-
-        this.assetFile = assetFile;
         this.color = color;
         this.width = width;
         this.height = height;
@@ -41,7 +35,7 @@ public final class WaypointIcon {
     public BufferedImage render() throws IOException {
         BufferedImage icon = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2 = icon.createGraphics();
-        g2.drawImage(ImageIO.read(assetFile), 0, 0, null);
+        g2.drawImage(ImageIO.read(assetStream), 0, 0, null);
         g2.setComposite(AlphaComposite.SrcAtop);
         g2.setColor(color);
         g2.fillRect(0, 0, width, height);
@@ -50,8 +44,8 @@ public final class WaypointIcon {
         return icon;
     }
 
-    public File getAssetFile() {
-        return assetFile;
+    public InputStream getAssetStream() {
+        return assetStream;
     }
 
     public Color getColor() {
@@ -71,7 +65,7 @@ public final class WaypointIcon {
         if (obj == this) return true;
         if (obj == null || obj.getClass() != this.getClass()) return false;
         var that = (WaypointIcon) obj;
-        return Objects.equals(this.assetFile, that.assetFile) &&
+        return Objects.equals(this.assetStream, that.assetStream) &&
                 Objects.equals(this.color, that.color) &&
                 this.width == that.width &&
                 this.height == that.height;
@@ -79,13 +73,13 @@ public final class WaypointIcon {
 
     @Override
     public int hashCode() {
-        return Objects.hash(assetFile, color, width, height);
+        return Objects.hash(assetStream, color, width, height);
     }
 
     @Override
     public String toString() {
         return "WaypointIcon[" +
-                "assetFile=" + assetFile + ", " +
+                "assetFile=" + assetStream + ", " +
                 "color=" + color + ", " +
                 "width=" + width + ", " +
                 "height=" + height + ']';
