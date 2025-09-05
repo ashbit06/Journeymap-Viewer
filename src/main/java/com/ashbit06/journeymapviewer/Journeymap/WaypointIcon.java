@@ -79,7 +79,7 @@ public final class WaypointIcon {
     @Override
     public String toString() {
         return "WaypointIcon[" +
-                "assetFile=" + assetStream + ", " +
+                "assetStream=" + assetStream + ", " +
                 "color=" + color + ", " +
                 "width=" + width + ", " +
                 "height=" + height + ']';
